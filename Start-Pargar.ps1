@@ -17,6 +17,10 @@ try {
     throw 'Node.js was not found. Install Node.js LTS, then run this launcher again.'
   }
 
+  if (-not (Test-Path '.env')) {
+    Copy-Item '.env.example' '.env'
+  }
+
   if (-not (Test-Path 'node_modules')) {
     Write-Host 'Installing application dependencies...'
     & npm install
