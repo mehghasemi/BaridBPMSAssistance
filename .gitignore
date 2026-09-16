@@ -3,4 +3,5 @@ dist/
 .env
 prisma/dev.db
 *.log
+Formyar-Portable-*.zip
 مستند تهیه داکیومنت/
