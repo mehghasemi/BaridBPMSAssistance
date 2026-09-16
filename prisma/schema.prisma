@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  SPECIALIST
+  ADMIN
+}
+
+enum RequestPriority {
+  NORMAL
+  URGENT
+  CRITICAL
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED_BY_CUSTOMER
+  UNDER_REVIEW
+  CUSTOMER_COMPLETION_REQUIRED
+  FINAL_APPROVED
+  READY_FOR_DESIGN
+  CLOSED
+}
+
+enum AttachmentKind {
+  LEGACY_FORM
+  SUPPORTING_DOCUMENT
+  OTHER
+}
+
+enum FieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  NUMBER
+  CURRENCY
+  DATE
+  TIME
+  BOOLEAN
+  SELECT
+  RADIO
+  SYSTEM_LOOKUP
+  ATTACHMENT
+  SIGNATURE
+  REPEATING_TABLE
+  STATIC_TEXT
+  STATIC_IMAGE
+}
+
+enum WorkflowTerminalStatus {
+  COMPLETED
+  REJECTED
+  CANCELLED
+  NEEDS_CORRECTION
+}
+
+enum CommentTargetType {
+  REQUEST
+  SECTION
+  FIELD
+  WORKFLOW_STAGE
+  WORKFLOW_ACTION
+}
+
+enum CommentState {
+  OPEN
+  ANSWERED
+  RESOLVED
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  units     OrganizationalUnit[]
+  requests  FormDesignRequest[]
+}
+
+model OrganizationalUnit {
+  id             String       @id @default(cuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownedRequests  FormDesignRequest[] @relation("OwningUnit")
+
+  @@unique([organizationId, name])
+}
+
+model User {
+  id             String       @id @default(cuid())
+  fullName       String
+  email          String?      @unique
+  role           UserRole
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdRequests FormDesignRequest[] @relation("RequestCreator")
+  comments       Comment[]
+  historyEvents  ChangeHistory[]
+}
+
+model FormDesignRequest {
+  id                 String          @id @default(cuid())
+  formName           String
+  purpose            String
+  briefProcess       String?
+  audiences          String?
+  priority           RequestPriority @default(NORMAL)
+  status             RequestStatus   @default(DRAFT)
+  organizationId     String
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerUnitId        String?
+  ownerUnit          OrganizationalUnit? @relation("OwningUnit", fields: [ownerUnitId], references: [id], onDelete: SetNull)
+  createdById        String
+  createdBy          User            @relation("RequestCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  finalApprovedAt    DateTime?
+  closedAt           DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  attachments        Attachment[]
+  sections           FormSection[]
+  fields             FormField[]
+  workflowStages     WorkflowStage[]
+  comments           Comment[]
+  history            ChangeHistory[]
+
+  @@index([status])
+  @@index([organizationId, createdAt])
+}
+
+model Attachment {
+  id        String       @id @default(cuid())
+  fileName  String
+  filePath  String
+  mimeType  String?
+  sizeBytes Int?
+  kind      AttachmentKind @default(OTHER)
+  requestId String
+  request   FormDesignRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model FormSection {
+  id        String       @id @default(cuid())
+  title     String
+  sortOrder Int
+  requestId String
+  request   FormDesignRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fields    FormField[]
+
+  @@unique([requestId, sortOrder])
+}
+
+model FormField {
+  id                 String       @id @default(cuid())
+  technicalId        String
+  displayTitle       String
+  completionHelp     String?
+  type               FieldType
+  isRequired         Boolean
+  isReadOnly         Boolean      @default(false)
+  defaultValue       String?
+  exampleValue       String?
+  visibilityRule     String?
+  validationRule     String?
+  dataSource         String?
+  calculationLogic   String?
+  sortOrder          Int
+  requestId          String
+  request            FormDesignRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sectionId          String
+  section            FormSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  options            FieldOption[]
+  tableColumns       TableColumn[]
+
+  @@unique([requestId, technicalId])
+  @@unique([sectionId, sortOrder])
+}
+
+model FieldOption {
+  id        String    @id @default(cuid())
+  code      String
+  title     String
+  sortOrder Int
+  isActive  Boolean   @default(true)
+  fieldId   String
+  field     FormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, code])
+  @@unique([fieldId, sortOrder])
+}
+
+model TableColumn {
+  id        String    @id @default(cuid())
+  technicalId String
+  displayTitle String
+  type      FieldType
+  isRequired Boolean  @default(false)
+  sortOrder Int
+  fieldId   String
+  field     FormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, technicalId])
+  @@unique([fieldId, sortOrder])
+}
+
+model WorkflowStage {
+  id              String            @id @default(cuid())
+  name            String
+  responsibleRole String
+  dueDays         Int?
+  description     String?
+  sortOrder       Int
+  requestId       String
+  request         FormDesignRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  outgoingActions WorkflowAction[]  @relation("SourceStage")
+  incomingActions WorkflowAction[]  @relation("TargetStage")
+
+  @@unique([requestId, sortOrder])
+}
+
+model WorkflowAction {
+  id                String                  @id @default(cuid())
+  title             String
+  condition         String?
+  recipients        String?
+  description       String?
+  sourceStageId     String
+  sourceStage       WorkflowStage           @relation("SourceStage", fields: [sourceStageId], references: [id], onDelete: Cascade)
+  targetStageId     String?
+  targetStage       WorkflowStage?          @relation("TargetStage", fields: [targetStageId], references: [id], onDelete: SetNull)
+  terminalStatus    WorkflowTerminalStatus?
+
+  @@index([sourceStageId])
+}
+
+model Comment {
+  id          String            @id @default(cuid())
+  body        String
+  answer      String?
+  state       CommentState      @default(OPEN)
+  targetType  CommentTargetType
+  targetId    String?
+  requestId   String
+  request     FormDesignRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User              @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now())
+  answeredAt  DateTime?
+  resolvedAt  DateTime?
+
+  @@index([requestId, state])
+}
+
+model ChangeHistory {
+  id          String            @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String?
+  oldValue    String?
+  newValue    String?
+  requestId   String
+  request     FormDesignRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorId     String
+  actor       User              @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now())
+
+  @@index([requestId, createdAt])
+}
