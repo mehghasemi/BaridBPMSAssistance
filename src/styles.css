@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap');
 
+.context-help { display:inline-flex; position:relative; vertical-align:middle; margin-right:5px; z-index:3; }.context-help>button { width:20px; height:20px; border:1px solid #aebfda; border-radius:50%; background:#f5f8fe; color:#406bb2; font-size:12px; font-weight:800; line-height:1; padding:0; cursor:pointer; }.context-help>button:hover,.context-help>button[aria-expanded="true"] { background:#416fc0; border-color:#416fc0; color:#fff; }.context-help-popover { position:absolute; top:27px; right:0; width:min(290px,70vw); padding:11px 12px; border:1px solid #cbd9ef; border-radius:9px; background:#fff; box-shadow:0 10px 25px #20385a22; text-align:right; white-space:normal; }.context-help-popover strong,.context-help-popover small { display:block; }.context-help-popover strong { color:#38547e; font-size:11px; margin-bottom:4px; }.context-help-popover small { color:#65738a; font-size:10px; line-height:1.8; }
+
 :root { font-family: Vazirmatn, Tahoma, sans-serif; color: #1d2b43; background: #f5f7fb; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #f6f8fc; }
